@@ -8,18 +8,18 @@ import pydeck as pdk
 import plotly.express as px
 from sklearn.ensemble import IsolationForest
 
-# =============================
+# =========================
 # PAGE CONFIG
-# =============================
+# =========================
 
 st.set_page_config(
     page_title="NumLock AI Security Center",
     layout="wide"
 )
 
-# =============================
+# =========================
 # LOGIN SYSTEM
-# =============================
+# =========================
 
 ADMIN_USER = "admin"
 ADMIN_PASSWORD = "numlock123"
@@ -36,39 +36,38 @@ def login():
 
         if username == ADMIN_USER and password == ADMIN_PASSWORD:
 
-            st.session_state["authenticated"] = True
-            st.success("Login successful")
+            st.session_state["auth"] = True
             st.rerun()
 
         else:
             st.error("Invalid credentials")
 
-if "authenticated" not in st.session_state:
-    st.session_state["authenticated"] = False
+if "auth" not in st.session_state:
+    st.session_state["auth"] = False
 
-if not st.session_state["authenticated"]:
+if not st.session_state["auth"]:
     login()
     st.stop()
 
-# =============================
+# =========================
 # TELEGRAM CONFIG
-# =============================
+# =========================
 
 BOT_TOKEN = st.secrets["BOT_TOKEN"]
 TELEGRAM_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
-# =============================
-# DATABASE (MEMORY)
-# =============================
+# =========================
+# DATABASE
+# =========================
 
 USER_DB = {}
 TOKENS = {}
 ACTIVITY = []
 ALERTS = []
 
-# =============================
+# =========================
 # TELEGRAM REGISTRATION
-# =============================
+# =========================
 
 def fetch_registrations():
 
@@ -99,9 +98,13 @@ def fetch_registrations():
 
                 USER_DB[phone] = chat_id
 
-# =============================
-# SEND ALERT
-# =============================
+
+# IMPORTANT: run registration fetch
+fetch_registrations()
+
+# =========================
+# ALERT SYSTEM
+# =========================
 
 def send_alert(phone,message):
 
@@ -119,15 +122,15 @@ def send_alert(phone,message):
 
     ALERTS.append({
         "phone":phone,
-        "time":time.strftime("%H:%M:%S"),
-        "message":message
+        "message":message,
+        "time":time.strftime("%H:%M:%S")
     })
 
     return True
 
-# =============================
+# =========================
 # TOKEN SYSTEM
-# =============================
+# =========================
 
 def generate_token(phone):
 
@@ -143,17 +146,15 @@ def generate_token(phone):
 
     return token
 
-# =============================
+# =========================
 # FRAUD ENGINE
-# =============================
+# =========================
 
 def fraud_score(phone):
 
-    now=time.time()
-
     ACTIVITY.append({
         "phone":phone,
-        "time":now,
+        "time":time.time(),
         "lat":random.uniform(20,30),
         "lon":random.uniform(70,80)
     })
@@ -162,13 +163,13 @@ def fraud_score(phone):
 
     return score
 
-# =============================
+# =========================
 # AI ANOMALY DETECTION
-# =============================
+# =========================
 
-def ai_anomaly_detection():
+def ai_detection():
 
-    if len(ACTIVITY) < 5:
+    if len(ACTIVITY)<5:
         return "Not enough data"
 
     df=pd.DataFrame(ACTIVITY)
@@ -189,11 +190,11 @@ def ai_anomaly_detection():
     if anomalies>0:
         return "ANOMALY DETECTED"
 
-    return "Normal Activity"
+    return "Normal"
 
-# =============================
+# =========================
 # ACTIVITY GRAPH
-# =============================
+# =========================
 
 def activity_graph():
 
@@ -218,9 +219,9 @@ def activity_graph():
 
     return fig
 
-# =============================
+# =========================
 # ATTACK TIMELINE
-# =============================
+# =========================
 
 def attack_timeline():
 
@@ -240,9 +241,9 @@ def attack_timeline():
 
     return fig
 
-# =============================
+# =========================
 # ATTACK MAP
-# =============================
+# =========================
 
 def attack_map():
 
@@ -272,9 +273,9 @@ def attack_map():
 
     return deck
 
-# =============================
+# =========================
 # HEADER
-# =============================
+# =========================
 
 st.markdown(
 """
@@ -298,29 +299,29 @@ st.markdown('<p class="subtitle">AI Driven Privacy Preserving Threat Detection</
 
 st.divider()
 
-# =============================
-# LIVE CYBER COUNTER
-# =============================
+# =========================
+# CYBER COUNTER
+# =========================
 
-active_threats=sum(1 for a in ALERTS)
-blocked_attacks=len(ACTIVITY)
-risk_level="LOW"
+blocked=len(ACTIVITY)
 
-if blocked_attacks>20:
-    risk_level="HIGH"
+risk="LOW"
+
+if blocked>20:
+    risk="HIGH"
 
 col1,col2,col3,col4=st.columns(4)
 
 col1.metric("Registered Users",len(USER_DB))
 col2.metric("Active Tokens",len(TOKENS))
-col3.metric("Blocked Attacks",blocked_attacks)
-col4.metric("System Risk Level",risk_level)
+col3.metric("Blocked Attacks",blocked)
+col4.metric("Risk Level",risk)
 
 st.divider()
 
-# =============================
+# =========================
 # SIDEBAR
-# =============================
+# =========================
 
 menu=st.sidebar.selectbox(
 "Module",
@@ -335,12 +336,12 @@ menu=st.sidebar.selectbox(
 )
 
 if st.sidebar.button("Logout"):
-    st.session_state["authenticated"]=False
+    st.session_state["auth"]=False
     st.rerun()
 
-# =============================
-# ALERT SYSTEM
-# =============================
+# =========================
+# SEND ALERT
+# =========================
 
 if menu=="Send Security Alert":
 
@@ -365,9 +366,9 @@ System: NumLock AI
         else:
             st.error("User not registered")
 
-# =============================
+# =========================
 # TOKEN SYSTEM
-# =============================
+# =========================
 
 elif menu=="Token System":
 
@@ -379,9 +380,9 @@ elif menu=="Token System":
 
         st.success(token)
 
-# =============================
+# =========================
 # FRAUD MONITOR
-# =============================
+# =========================
 
 elif menu=="Fraud Monitor":
 
@@ -402,26 +403,26 @@ elif menu=="Fraud Monitor":
 
             st.error("High Risk")
 
-# =============================
+# =========================
 # AI THREAT
-# =============================
+# =========================
 
 elif menu=="Threat Prediction":
 
-    result=ai_anomaly_detection()
+    result=ai_detection()
 
     st.subheader("AI Threat Analysis")
 
-    st.write("Detection Result:",result)
+    st.write("Result:",result)
 
     if result=="ANOMALY DETECTED":
         st.error("⚠ Suspicious behaviour detected")
     else:
         st.success("System behaviour normal")
 
-# =============================
+# =========================
 # DASHBOARD
-# =============================
+# =========================
 
 elif menu=="Attack Dashboard":
 
@@ -446,9 +447,9 @@ elif menu=="Attack Dashboard":
     if deck:
         st.pydeck_chart(deck)
 
-# =============================
+# =========================
 # ALERT LOG
-# =============================
+# =========================
 
 elif menu=="Alerts Log":
 
@@ -459,4 +460,5 @@ elif menu=="Alerts Log":
         st.dataframe(df)
 
     else:
+
         st.info("No alerts yet")
