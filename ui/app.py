@@ -4,8 +4,9 @@ import time
 import random
 import requests
 import pandas as pd
-import plotly.express as px
 import pydeck as pdk
+import plotly.express as px
+from sklearn.ensemble import IsolationForest
 
 # =============================
 # PAGE CONFIG
@@ -40,7 +41,6 @@ def login():
             st.rerun()
 
         else:
-
             st.error("Invalid credentials")
 
 if "authenticated" not in st.session_state:
@@ -58,7 +58,7 @@ BOT_TOKEN = st.secrets["BOT_TOKEN"]
 TELEGRAM_URL = f"https://api.telegram.org/bot{BOT_TOKEN}"
 
 # =============================
-# DATABASE (in memory)
+# DATABASE (MEMORY)
 # =============================
 
 USER_DB = {}
@@ -86,7 +86,7 @@ def fetch_registrations():
             continue
 
         msg = update["message"]
-        text = msg.get("text", "")
+        text = msg.get("text","")
         chat_id = msg["chat"]["id"]
 
         if text.startswith("/register"):
@@ -96,13 +96,14 @@ def fetch_registrations():
             if len(parts) == 2:
 
                 phone = parts[1]
+
                 USER_DB[phone] = chat_id
 
 # =============================
 # SEND ALERT
 # =============================
 
-def send_alert(phone, message):
+def send_alert(phone,message):
 
     chat_id = USER_DB.get(phone)
 
@@ -110,16 +111,16 @@ def send_alert(phone, message):
         return False
 
     payload = {
-        "chat_id": chat_id,
-        "text": message
+        "chat_id":chat_id,
+        "text":message
     }
 
-    requests.post(f"{TELEGRAM_URL}/sendMessage", data=payload)
+    requests.post(f"{TELEGRAM_URL}/sendMessage",data=payload)
 
     ALERTS.append({
-        "phone": phone,
-        "message": message,
-        "time": time.strftime("%H:%M:%S")
+        "phone":phone,
+        "time":time.strftime("%H:%M:%S"),
+        "message":message
     })
 
     return True
@@ -130,13 +131,14 @@ def send_alert(phone, message):
 
 def generate_token(phone):
 
-    base = f"{phone}-{time.time()}"
-    token = hashlib.sha256(base.encode()).hexdigest()[:16]
+    base=f"{phone}-{time.time()}"
 
-    TOKENS[token] = {
-        "phone": phone,
-        "exp": time.time() + 300,
-        "used": False
+    token=hashlib.sha256(base.encode()).hexdigest()[:16]
+
+    TOKENS[token]={
+        "phone":phone,
+        "exp":time.time()+300,
+        "used":False
     }
 
     return token
@@ -147,35 +149,47 @@ def generate_token(phone):
 
 def fraud_score(phone):
 
-    now = time.time()
+    now=time.time()
 
     ACTIVITY.append({
-        "phone": phone,
-        "time": now,
-        "lat": random.uniform(20, 30),
-        "lon": random.uniform(70, 80)
+        "phone":phone,
+        "time":now,
+        "lat":random.uniform(20,30),
+        "lon":random.uniform(70,80)
     })
 
-    score = min(len(ACTIVITY) * 5, 100)
+    score=min(len(ACTIVITY)*5,100)
 
     return score
 
 # =============================
-# AI THREAT PREDICTION
+# AI ANOMALY DETECTION
 # =============================
 
-def predict_threat():
+def ai_anomaly_detection():
 
-    score = random.randint(0, 100)
+    if len(ACTIVITY) < 5:
+        return "Not enough data"
 
-    if score < 40:
-        risk = "LOW"
-    elif score < 70:
-        risk = "MEDIUM"
-    else:
-        risk = "HIGH"
+    df=pd.DataFrame(ACTIVITY)
 
-    return score, risk
+    features=df[["lat","lon"]]
+
+    model=IsolationForest(
+        contamination=0.2,
+        random_state=42
+    )
+
+    model.fit(features)
+
+    preds=model.predict(features)
+
+    anomalies=sum(preds==-1)
+
+    if anomalies>0:
+        return "ANOMALY DETECTED"
+
+    return "Normal Activity"
 
 # =============================
 # ACTIVITY GRAPH
@@ -186,16 +200,16 @@ def activity_graph():
     if not ACTIVITY:
         return None
 
-    df = pd.DataFrame(ACTIVITY)
+    df=pd.DataFrame(ACTIVITY)
 
-    counts = df["phone"].value_counts()
+    counts=df["phone"].value_counts()
 
-    graph_df = pd.DataFrame({
-        "phone": counts.index,
-        "requests": counts.values
+    graph_df=pd.DataFrame({
+        "phone":counts.index,
+        "requests":counts.values
     })
 
-    fig = px.bar(
+    fig=px.bar(
         graph_df,
         x="phone",
         y="requests",
@@ -213,11 +227,11 @@ def attack_timeline():
     if not ACTIVITY:
         return None
 
-    df = pd.DataFrame(ACTIVITY)
+    df=pd.DataFrame(ACTIVITY)
 
-    df["time"] = pd.to_datetime(df["time"], unit="s")
+    df["time"]=pd.to_datetime(df["time"],unit="s")
 
-    fig = px.scatter(
+    fig=px.scatter(
         df,
         x="time",
         y="phone",
@@ -235,42 +249,42 @@ def attack_map():
     if not ACTIVITY:
         return None
 
-    df = pd.DataFrame(ACTIVITY)
+    df=pd.DataFrame(ACTIVITY)
 
-    layer = pdk.Layer(
+    layer=pdk.Layer(
         "ScatterplotLayer",
         df,
-        get_position="[lon, lat]",
+        get_position="[lon,lat]",
         get_radius=50000,
-        get_color=[255, 0, 0],
+        get_color=[255,0,0]
     )
 
-    view_state = pdk.ViewState(
+    view=pdk.ViewState(
         latitude=23,
         longitude=78,
         zoom=4
     )
 
-    deck = pdk.Deck(
+    deck=pdk.Deck(
         layers=[layer],
-        initial_view_state=view_state
+        initial_view_state=view
     )
 
     return deck
 
 # =============================
-# DASHBOARD HEADER
+# HEADER
 # =============================
 
 st.markdown(
 """
 <style>
-.big-title {
+.big-title{
 font-size:40px;
 font-weight:bold;
 color:#00ffcc;
 }
-.subtitle {
+.subtitle{
 font-size:18px;
 color:gray;
 }
@@ -279,29 +293,36 @@ color:gray;
 unsafe_allow_html=True
 )
 
-st.markdown('<p class="big-title">🔐 NumLock AI Cybersecurity Platform</p>', unsafe_allow_html=True)
-st.markdown('<p class="subtitle">AI-Driven Privacy Preserving Threat Detection System</p>', unsafe_allow_html=True)
+st.markdown('<p class="big-title">🔐 NumLock AI Cybersecurity Platform</p>',unsafe_allow_html=True)
+st.markdown('<p class="subtitle">AI Driven Privacy Preserving Threat Detection</p>',unsafe_allow_html=True)
 
 st.divider()
 
 # =============================
-# SECURITY METRICS
+# LIVE CYBER COUNTER
 # =============================
 
-col1, col2, col3, col4 = st.columns(4)
+active_threats=sum(1 for a in ALERTS)
+blocked_attacks=len(ACTIVITY)
+risk_level="LOW"
 
-col1.metric("Registered Users", len(USER_DB))
-col2.metric("Active Tokens", len(TOKENS))
-col3.metric("Alerts Triggered", len(ALERTS))
-col4.metric("Activity Events", len(ACTIVITY))
+if blocked_attacks>20:
+    risk_level="HIGH"
+
+col1,col2,col3,col4=st.columns(4)
+
+col1.metric("Registered Users",len(USER_DB))
+col2.metric("Active Tokens",len(TOKENS))
+col3.metric("Blocked Attacks",blocked_attacks)
+col4.metric("System Risk Level",risk_level)
 
 st.divider()
 
 # =============================
-# SIDEBAR MENU
+# SIDEBAR
 # =============================
 
-menu = st.sidebar.selectbox(
+menu=st.sidebar.selectbox(
 "Module",
 [
 "Send Security Alert",
@@ -314,20 +335,20 @@ menu = st.sidebar.selectbox(
 )
 
 if st.sidebar.button("Logout"):
-    st.session_state["authenticated"] = False
+    st.session_state["authenticated"]=False
     st.rerun()
 
 # =============================
 # ALERT SYSTEM
 # =============================
 
-if menu == "Send Security Alert":
+if menu=="Send Security Alert":
 
-    phone = st.text_input("Phone")
+    phone=st.text_input("Phone")
 
     if st.button("Trigger Alert"):
 
-        msg = f"""
+        msg=f"""
 🚨 SECURITY ALERT
 
 Suspicious activity detected
@@ -337,7 +358,7 @@ Phone: {phone}
 System: NumLock AI
 """
 
-        ok = send_alert(phone, msg)
+        ok=send_alert(phone,msg)
 
         if ok:
             st.success("Alert sent")
@@ -348,13 +369,13 @@ System: NumLock AI
 # TOKEN SYSTEM
 # =============================
 
-elif menu == "Token System":
+elif menu=="Token System":
 
-    phone = st.text_input("Phone")
+    phone=st.text_input("Phone")
 
     if st.button("Generate Token"):
 
-        token = generate_token(phone)
+        token=generate_token(phone)
 
         st.success(token)
 
@@ -362,60 +383,65 @@ elif menu == "Token System":
 # FRAUD MONITOR
 # =============================
 
-elif menu == "Fraud Monitor":
+elif menu=="Fraud Monitor":
 
-    phone = st.text_input("Phone")
+    phone=st.text_input("Phone")
 
     if st.button("Check Fraud"):
 
-        score = fraud_score(phone)
+        score=fraud_score(phone)
 
-        st.metric("Fraud Score", score)
+        st.metric("Fraud Score",score)
 
-        if score > 70:
+        if score>70:
 
             send_alert(
                 phone,
-                f"⚠️ HIGH FRAUD ACTIVITY\nPhone:{phone}\nScore:{score}"
+                f"⚠ HIGH FRAUD ACTIVITY\nPhone:{phone}\nScore:{score}"
             )
 
             st.error("High Risk")
 
 # =============================
-# THREAT PREDICTION
+# AI THREAT
 # =============================
 
-elif menu == "Threat Prediction":
+elif menu=="Threat Prediction":
 
-    score, risk = predict_threat()
+    result=ai_anomaly_detection()
 
-    st.metric("Threat Score", score)
+    st.subheader("AI Threat Analysis")
 
-    st.write("Risk:", risk)
+    st.write("Detection Result:",result)
+
+    if result=="ANOMALY DETECTED":
+        st.error("⚠ Suspicious behaviour detected")
+    else:
+        st.success("System behaviour normal")
 
 # =============================
 # DASHBOARD
 # =============================
 
-elif menu == "Attack Dashboard":
+elif menu=="Attack Dashboard":
 
     st.subheader("Activity Distribution")
 
-    fig = activity_graph()
+    fig=activity_graph()
 
     if fig:
         st.plotly_chart(fig)
 
     st.subheader("Attack Timeline")
 
-    timeline = attack_timeline()
+    timeline=attack_timeline()
 
     if timeline:
         st.plotly_chart(timeline)
 
     st.subheader("Attack Map")
 
-    deck = attack_map()
+    deck=attack_map()
 
     if deck:
         st.pydeck_chart(deck)
@@ -424,14 +450,13 @@ elif menu == "Attack Dashboard":
 # ALERT LOG
 # =============================
 
-elif menu == "Alerts Log":
+elif menu=="Alerts Log":
 
     if ALERTS:
 
-        df = pd.DataFrame(ALERTS)
+        df=pd.DataFrame(ALERTS)
 
         st.dataframe(df)
 
     else:
-
         st.info("No alerts yet")
